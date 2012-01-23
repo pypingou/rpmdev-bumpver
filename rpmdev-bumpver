@@ -89,6 +89,7 @@ def update_spec(specfile, args):
                     print ' Update version from %s to %s' % (old_version,
                         new_version)
                     spec[cnt] = newline
+            # Give a warning if the Source0 does not use %{version}
             if line.startswith('Source0'):
                 if not '%{version}' in line:
                     print 'Warning: Your Source0 does not contain the %{version} macro:'
