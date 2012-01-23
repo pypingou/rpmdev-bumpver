@@ -16,3 +16,4 @@ alias if he could determine your username.
 
 Dependencies:
   - fedora-cert
+  - python-argparse
