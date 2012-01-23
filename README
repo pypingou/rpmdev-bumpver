@@ -1,0 +1,18 @@
+rpmdev-bumpver
+==============
+
+Just like the rpmdev-bumpspec can bump a release number this script
+allows you to bump a version number for simple update.
+
+The only items changed are:
+- the Version, set to the one you specify or simply update +1
+- the Release, set back to 1
+- the Changelog
+
+If you do not provide your username, it will try to guess it from
+your Fedora certificate.
+If you do not provide your email, it will use your @fedoraproject.org
+alias if he could determine your username.
+
+Dependencies:
+  - fedora-cert
