@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+
+"""
+# rpmdev-bumpver
+#
+# rpmdev-bumpver updates the spec files for a new release.
+#
+#
+# (c) 2012 - by Pierre-Yves Chibon <pingou@pingoure.fr>
+#
+#
+# Distributed under License GPLv2 or later
+# You can find a copy of this license on the website
+# http://www.gnu.org/licenses/gpl.html
+#
+"""
+
+import argparse
+import datetime
+import fedora_cert
+import os
+import re
+import sys
+
+
+def setup_parser():
+    """ Set the main arguments. """
+    parser = argparse.ArgumentParser(prog='rpmdev-bumpver')
+    parser.add_argument('specfile', nargs='+',
+                    help = 'Specfile to modify')
+    parser.add_argument('-v', '--version',
+                    help = 'New version for the spec.'
+                    'By default it will do a +1 on the current version.')
+    parser.add_argument('-u', '--user',
+                    help = 'Packager\'s name to put on the changelog.'
+                    'By default it will use the FAS name')
+    parser.add_argument('-e', '--email',
+                    help = 'Packager\'s email to put on the changelog.'
+                    'By default it will use the fedoraproject.org alias')
+    return parser
+
+
+def get_new_version(old_version):
+    """ From an old version string, return the new one.
+    """
+    version = old_version.split('.')
+    last_i = version[-1:][0]
+    m = re.search('(\d+)\D?', last_i)
+    o_ver = m.group(1)
+    new_ver = int(o_ver) + 1
+    version[len(version) - 1] = last_i.replace(str(o_ver), str(new_ver))
+    return '.'.join(version)
+
+
+def update_spec(specfile, args):
+    """
+       For a given package name, find the spec in the %_specdir and
+       update its version, release and changelog
+    """
+    if not os.path.exists(specfile):
+        print 'ERROR: spec file "%s" not found' % specfile
+        return 1
+    else:
+        print ' ** Updating spec: %s' % specfile
+        f = open(specfile)
+        s = f.read()
+        f.close()
+        spec = s.split('\n')
+        
+        cnt = 0
+        new_version = args.version
+        username = args.user
+        if not username:
+            username = fedora_cert.read_user_cert()
+        email = args.email
+        if not email and username:
+            email = '%s@fedoraproject.org' % username 
+        for line in spec:
+            # Update version
+            if line.startswith('Version'):
+                newline = line.strip().split(' ')
+                old_version = newline[-1:][0]
+                if not new_version:
+                    new_version = get_new_version(old_version)
+                newline[len(newline) - 1] = new_version
+                newline = ' '.join(newline)
+                if newline != line:
+                    print ' Update version from %s to %s' % (old_version,
+                        new_version)
+                    spec[cnt] = newline
+            # Update release
+            if line.startswith('Release'):
+                newline = line.strip().split(' ')
+                newline[len(newline) -1] = '1%{dist}'
+                newline = ' '.join(newline)
+                if newline != line:
+                    print ' Update release'
+                    spec[cnt] = newline
+            # Update changelog
+            if line.startswith('%changelog'):
+                date= datetime.datetime.now().strftime("%a %b %d %Y")
+                string1 = "* %s %s <%s> %s-1" %(date, username, email,
+                    new_version)
+                string2 ="- Update to version %s"%(new_version)
+                if spec[cnt+1] != string1:
+                    print ' Update changelog'
+                    spec.insert(cnt+1, string1)
+                    spec.insert(cnt+2, string2)
+                    spec.insert(cnt+3, "")
+            
+            # Counter for the rows
+            cnt = cnt + 1
+            
+    # Write down the new spec
+    spec = "\n".join(spec)
+    if spec != s:
+        f = open(specfile, 'w')
+        s = f.write(spec)
+        f.close()
+    return 0
+
+if __name__ == "__main__":
+    parser = setup_parser()
+    args = parser.parse_args()
+    for spec in args.specfile:
+        specfile = os.path.expanduser(spec)
+        update_spec(specfile, args)
